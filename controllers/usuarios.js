@@ -1,42 +1,70 @@
 const { response } = require('express');
+const bcryptjs = require( 'bcryptjs' );
+const Usuario = require('../models/usuario');
 
-const usuariosGet =(req, res = response) => {
+const usuariosGet = async (req, res = response) => {
 
-  const { q, nombre = 'no name' , key, page = 1, limit } = req.query;
+  const { limite = 5, desde = 0 } = req.query;
+  const query = {estatus: true}
+
+  const [total, usuarios] = await Promise.all([
+    Usuario.countDocuments( query ),
+    Usuario.find( query )
+    .skip( Number( desde ) )
+    .limit(Number( limite ))
+  ]);
 
   res.json({
-    msg: 'get API - controlador',
-    q,
-    nombre,
-    key,
-    page,
-    limit
+    total,
+    usuarios
   });
 }
 
-const usuariosPut = (req, res = response) => {
+const usuariosPut = async (req, res = response) => {
 
-  const id = req.params.id;
+  const { id } = req.params;
+  const { _id,password, google, ...resto} = req.body;
+
+  //Encriptar la contraeña
+  if( password ) {
+  const salt = bcryptjs.genSaltSync();
+  resto.password = bcryptjs.hashSync( password, salt );
+
+  }
+
+  const usuario = await Usuario.findByIdAndUpdate( id, resto);
+
+  res.json({usuario});
+}
+
+const usuariosPost = async (req, res = response) => {
+
+
+  const { name, email, password, rol } = req.body;
+  const usuario = new Usuario( { name, email, password, rol } );
+
+  //Encriptar la contraeña
+  const salt = bcryptjs.genSaltSync();
+  usuario.password = bcryptjs.hashSync( password, salt );
+
+  //guardar en BD
+  await usuario.save();
 
   res.json({
-    msg: 'put API - controlador',
-    id
+    usuario
   });
 }
 
-const usuariosPost = (req, res = response) => {
+const usuariosDelete = async (req, res = response) => {
 
-  const { nombre, edad } = req.body;
-  res.json({
-    msg: 'post API - controlador',
-    nombre,
-    edad
-  });
-}
+  const { id } = req.params;
 
-const usuariosDelete = (req, res = response) => {
+  //fisicamente lo borramos
+  const usuario = await Usuario.findByIdAndUpdate( id, { estatus: false });
+
   res.json({
-    msg: 'delete API - controlador'
+    msg: `El usuario ${ id } ha sido eliminado`,
+    usuario
   });
 }
 
